@@ -51,23 +51,36 @@ public class TrimSlowMovingPointsWithSimilarAltitudes<T> implements DataCleaner<
 
     @Override
     public Optional<Track<T>> clean(Track<T> track) {
+        // Check for null speeds before doing anything else
+        for (Point<T> point : track.points()) {
+            if (point.speed() == null) {
+                ProcessingErrorCounter.getInstance().increment();
+                System.err.println("Skipping track due to null speed. Track ID: " + track.trackId());
+                Format format = Formats.getFormat("csv");
+                String[] trk = format.asRawStrings(track);
+                System.err.println(track.size() + " points");
+                for (String line : trk) {
+                    System.err.println(line);
+                }
+                return Optional.empty();
+            }
+        }
+
         TreeSet<Point<T>> points = newTreeSet(track.points());
 
         try {
             removePointsFromBeginning(points);
             removePointsFromEnd(points);
         } catch (Exception e) {
-            // Increment error counter and log error, but do not exit
             ProcessingErrorCounter.getInstance().increment();
             e.printStackTrace();
             System.out.println("Failed on Track: ");
             Format format = Formats.getFormat("csv");
             String[] trk0 = format.asRawStrings(track);
             System.out.println(track.size() + " points");
-            for (int i = 0; i < trk0.length; i++) {
-                System.out.println(trk0[i]);
+            for (String line : trk0) {
+                System.out.println(line);
             }
-            // Do not exit, just skip this track
             return Optional.empty();
         }
 
@@ -77,28 +90,16 @@ public class TrimSlowMovingPointsWithSimilarAltitudes<T> implements DataCleaner<
     }
 
     private void removePointsFromBeginning(NavigableSet<Point<T>> points) {
-
-        if (points.isEmpty()) {
-            return;
-        }
-        //Use the first altitude measurement to estimate the ground level  -- SUPER WRONG IF AIRCRAFT IS ALREADY ALOFT
+        if (points.isEmpty()) return;
         Distance startingAlt = points.first().altitude();
-
-        //remove low-speed points at the beginning of the track that share a common altitude
         while (!points.isEmpty() && isSlowAndInRange(points.first(), startingAlt)) {
             points.pollFirst();
         }
     }
 
     private void removePointsFromEnd(NavigableSet<Point<T>> points) {
-
-        if (points.isEmpty()) {
-            return;
-        }
-
-        //Use the last altitude measurement to estimate the ground level -- SUPER WRONG IF AIRCRAFT DIDN'T LAND
+        if (points.isEmpty()) return;
         Distance endingAlt = points.last().altitude();
-
         while (!points.isEmpty() && isSlowAndInRange(points.last(), endingAlt)) {
             points.pollLast();
         }
@@ -107,12 +108,11 @@ public class TrimSlowMovingPointsWithSimilarAltitudes<T> implements DataCleaner<
     private boolean isSlowAndInRange(Point<T> p, Distance estimatedGroundAlt) {
         Speed speed = p.speed();
         if (speed == null) {
-            // Treat as not slow and in range if speed is missing
+            // Treat as not slow and in range if speed is missing (shouldn't happen now)
             return false;
         }
         boolean isSlow = speed.inKnots() < speedLimitInKnots;
         boolean hasSimilarAlt = p.altitude().minus(estimatedGroundAlt).abs().isLessThan(groundAltitudeTolerance);
-
         return isSlow && hasSimilarAlt;
     }
 }
