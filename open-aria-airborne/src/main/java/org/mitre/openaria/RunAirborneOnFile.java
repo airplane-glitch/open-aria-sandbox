@@ -58,7 +58,9 @@ public class RunAirborneOnFile {
         System.out.println("DONE PROCESSING: " + dataFile.getName());
 
         // Write error count to file after processing
-        ProcessingErrorCounter.getInstance().writeCountToFile("processing_error_count.txt");
+        String baseName = dataFile.getName().replaceAll("\\.[^.]+$", ""); // strip extension
+        String errorFileName = "error_count_" + baseName + ".txt";
+        ProcessingErrorCounter.getInstance().writeCountToFile(errorFileName);
     }
 
 
