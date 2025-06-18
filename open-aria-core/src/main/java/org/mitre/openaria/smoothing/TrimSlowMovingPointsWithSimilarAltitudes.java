@@ -14,6 +14,10 @@ import org.mitre.caasd.commons.Distance;
 import org.mitre.caasd.commons.Speed;
 import org.mitre.openaria.core.Point;
 import org.mitre.openaria.core.Track;
+import org.mitre.openaria.core.formats.Format;
+import org.mitre.openaria.core.formats.Formats;
+import org.mitre.openaria.core.formats.ariacsv.AriaCsvHit;
+
 
 /**
  * Filters out low speed points at the front and back of a track that have a common altitude
@@ -48,12 +52,29 @@ public class TrimSlowMovingPointsWithSimilarAltitudes<T> implements DataCleaner<
     public Optional<Track<T>> clean(Track<T> track) {
         TreeSet<Point<T>> points = newTreeSet(track.points());
 
-        removePointsFromBeginning(points);
-        removePointsFromEnd(points);
+        try {
+            removePointsFromBeginning(points);
+            removePointsFromEnd(points);
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            System.out.println("Failed on Track: ");
+
+            Format format = Formats.getFormat("csv");
+            String[] trk0 = format.asRawStrings(track);
+
+            System.out.println(track.size() + " points");
+
+            for (int i = 0; i < trk0.length; i++) {
+                System.out.println(trk0[i]);
+            }
+            System.exit(1);
+        }
 
         return (points.size() >= minNumberPoints)
-            ? Optional.of(Track.of(points))
-            : Optional.empty();
+                ? Optional.of(Track.of(points))
+                : Optional.empty();
     }
 
     private void removePointsFromBeginning(NavigableSet<Point<T>> points) {
