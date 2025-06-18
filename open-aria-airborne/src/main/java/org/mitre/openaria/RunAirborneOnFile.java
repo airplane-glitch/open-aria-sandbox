@@ -12,6 +12,7 @@ import org.mitre.openaria.airborne.AirbornePairConsumer;
 import org.mitre.openaria.core.Point;
 import org.mitre.openaria.core.formats.Format;
 import org.mitre.openaria.system.StreamingKpi;
+import org.mitre.openaria.util.ProcessingErrorCounter;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
@@ -55,6 +56,9 @@ public class RunAirborneOnFile {
         pointIterator.forEachRemaining(streamingKpi);
         streamingKpi.flush();
         System.out.println("DONE PROCESSING: " + dataFile.getName());
+
+        // Write error count to file after processing
+        ProcessingErrorCounter.getInstance().writeCountToFile("processing_error_count.txt");
     }
 
 

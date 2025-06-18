@@ -1,10 +1,10 @@
-
 package org.mitre.openaria.smoothing;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.newTreeSet;
 import static java.util.Objects.requireNonNull;
 
+import java.io.IOException;
 import java.util.NavigableSet;
 import java.util.Optional;
 import java.util.TreeSet;
@@ -17,6 +17,7 @@ import org.mitre.openaria.core.Track;
 import org.mitre.openaria.core.formats.Format;
 import org.mitre.openaria.core.formats.Formats;
 import org.mitre.openaria.core.formats.ariacsv.AriaCsvHit;
+import org.mitre.openaria.util.ProcessingErrorCounter;
 
 
 /**
@@ -56,20 +57,18 @@ public class TrimSlowMovingPointsWithSimilarAltitudes<T> implements DataCleaner<
             removePointsFromBeginning(points);
             removePointsFromEnd(points);
         } catch (Exception e) {
-
+            // Increment error counter and log error, but do not exit
+            ProcessingErrorCounter.getInstance().increment();
             e.printStackTrace();
-
             System.out.println("Failed on Track: ");
-
             Format format = Formats.getFormat("csv");
             String[] trk0 = format.asRawStrings(track);
-
             System.out.println(track.size() + " points");
-
             for (int i = 0; i < trk0.length; i++) {
                 System.out.println(trk0[i]);
             }
-            System.exit(1);
+            // Do not exit, just skip this track
+            return Optional.empty();
         }
 
         return (points.size() >= minNumberPoints)
@@ -106,7 +105,12 @@ public class TrimSlowMovingPointsWithSimilarAltitudes<T> implements DataCleaner<
     }
 
     private boolean isSlowAndInRange(Point<T> p, Distance estimatedGroundAlt) {
-        boolean isSlow = p.speed().inKnots() < speedLimitInKnots;
+        Speed speed = p.speed();
+        if (speed == null) {
+            // Treat as not slow and in range if speed is missing
+            return false;
+        }
+        boolean isSlow = speed.inKnots() < speedLimitInKnots;
         boolean hasSimilarAlt = p.altitude().minus(estimatedGroundAlt).abs().isLessThan(groundAltitudeTolerance);
 
         return isSlow && hasSimilarAlt;
