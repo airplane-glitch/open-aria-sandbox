@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 
 import org.mitre.openaria.airborne.metrics.EventSummarizer;
 import org.mitre.openaria.core.TrackPair;
+import org.mitre.openaria.util.ProcessingErrorCounter;
 
 /**
  * A AirbornePairConsumer analyzes incoming TrackPairs and forwards all detected events to a
@@ -45,14 +46,25 @@ public class AirbornePairConsumer implements Consumer<TrackPair> {
 
     @Override
     public void accept(TrackPair trackPair) {
-        checkNotNull(trackPair);
+        try {
+            checkNotNull(trackPair);
 
-        ArrayList<AirborneEvent> detectedEvents = airborneAlgorithm.findAirborneEvents(trackPair);
+            ArrayList<AirborneEvent> detectedEvents = airborneAlgorithm.findAirborneEvents(trackPair);
 
-        detectedEvents.forEach(statCollector);
+            detectedEvents.forEach(statCollector);
 
-        for (AirborneEvent detectedEvent : detectedEvents) {
-            outputMechanism.accept(detectedEvent);
+            for (AirborneEvent detectedEvent : detectedEvents) {
+                outputMechanism.accept(detectedEvent);
+            }
+        } catch (Exception e) {
+            // Log the error, increment a counter, and continue
+            ProcessingErrorCounter.getInstance().increment();
+            System.err.println("Error processing TrackPair: " + e.getMessage());
+            if (trackPair != null) {
+                System.err.println("Track1 ID: " + trackPair.track1().trackId() + ", size: " + trackPair.track1().size());
+                System.err.println("Track2 ID: " + trackPair.track2().trackId() + ", size: " + trackPair.track2().size());
+            }
+            e.printStackTrace();
         }
     }
 
